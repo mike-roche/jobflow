@@ -9,6 +9,7 @@ import aiRoutes from './routes/ai.js';
 import applicationRoutes from './routes/applications.js';
 import exportRoutes from './routes/export.js';
 import alertRoutes from './routes/alerts.js';
+import { startScheduler } from './services/scheduler.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,6 +58,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 app.listen(PORT, () => {
   console.log(`JobFlow API running on port ${PORT}`);
+  startScheduler();
 });
 
 export default app;

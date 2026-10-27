@@ -7,11 +7,12 @@ JobFlow helps you discover jobs across multiple aggregators, customize your CV w
 ## Features
 
 - **CV Upload & Parsing** — Upload PDF/DOCX, AI extracts structured data
-- **Job Search** — Jooble, Indeed, Adzuna APIs with smart deduplication
+- **Job Search** — Remotive, Remote OK, Arbeitnow (no keys needed), plus optional Adzuna, Jooble, Indeed, with smart deduplication
+- **LinkedIn & Indeed alert import** — Reads your LinkedIn/Indeed job-alert emails (read-only) and adds the jobs to your list ([setup](docs/EMAIL_INGEST.md))
 - **AI Customization** — Tailor CV and generate cover letters for any job
 - **4 CV Templates** — Modern, Classic, Creative, Minimal
 - **Application Tracker** — Kanban board with drag-and-drop + Analytics dashboard
-- **Job Alerts** — Daily/weekly email digests with matching jobs
+- **Job Alerts** — Daily/weekly email digests with matching jobs, run by the built-in scheduler
 - **Browser Extension** — Auto-fill job application forms on company career pages
 
 ## Quick Start
@@ -85,13 +86,22 @@ npm run dev:frontend # http://localhost:3000
 | `MINIMAX_API_KEY` | One required | MiniMax |
 | `OPENROUTER_API_KEY` | Optional | Fallback aggregator |
 | `JOOBLE_API_KEY` | Optional | Jooble job search |
-| `INDEED_API_KEY` | Optional | Indeed via RapidAPI |
+| `INDEED_API_KEY` | Optional | Indeed via RapidAPI (unofficial) |
 | `ADZUNA_API_KEY` | Optional | Adzuna job search |
 | `ADZUNA_APP_ID` | Optional | Adzuna app ID |
-| `SMTP_HOST` | Optional | For job alert emails |
+| `MAIL_PROVIDER` | Optional | `outlook` to sign in to Outlook/Hotmail with OAuth |
+| `MAIL_USER` | Optional | Mailbox that receives LinkedIn/Indeed job alerts |
+| `MS_CLIENT_ID` | Optional | Azure app client ID for Outlook OAuth ([setup](docs/EMAIL_INGEST.md)) |
+| `IMAP_HOST` / `IMAP_PASSWORD` | Optional | Non-Outlook mailboxes with an app password |
+| `EMAIL_INGEST_FOLDERS` | Optional | Folders to scan (default `INBOX`) |
+| `JOBFLOW_USER_EMAIL` | Optional | JobFlow account that receives ingested jobs |
+| `SCHEDULER_ENABLED` | Optional | `false` disables the in-process scheduler |
+| `CRON_SECRET` | Optional | Enables `POST /api/alerts/check-all` for external cron |
+| `ALERT_EMAIL_TO` | Optional | Alert recipient for the built-in local user (defaults to `MAIL_USER`) |
+| `SMTP_HOST` | Optional | For job alert emails (not needed with Outlook OAuth) |
 | `SMTP_USER` | Optional | SMTP username |
 | `SMTP_PASS` | Optional | SMTP password |
-| `EMAIL_FROM` | Optional | From address for emails |
+| `EMAIL_FROM` | Optional | From address for emails (defaults to `MAIL_USER`) |
 
 ## Architecture
 
@@ -107,7 +117,8 @@ npm run dev:frontend # http://localhost:3000
 ┌────────────────▼────────────────────────────┐
 │  Express Backend (Port 3001)               │
 │  - Auth (JWT)                               │
-│  - Job aggregation (Jooble, Indeed, Adzuna)│
+│  - Job aggregation (Remotive, Adzuna, ...) │
+│  - Alert-email ingest (IMAP) + scheduler   │
 │  - AI services (OpenAI, Anthropic, MiniMax) │
 │  - Application tracking                      │
 │  - Job alerts (SMTP)                        │
@@ -132,7 +143,7 @@ npm run dev:frontend # http://localhost:3000
 - **Backend:** Express, TypeScript, Prisma ORM
 - **Database:** SQLite (opensource), PostgreSQL (hosted)
 - **AI:** OpenAI, Anthropic, MiniMax, OpenRouter
-- **Job Sources:** Jooble, Indeed, Adzuna APIs
+- **Job Sources:** Remotive, Remote OK, Arbeitnow, Adzuna, Jooble, Indeed APIs; LinkedIn/Indeed alert emails via IMAP
 - **Browser Extension:** Vanilla JS, Manifest V3
 
 ## API Endpoints
@@ -154,6 +165,7 @@ npm run dev:frontend # http://localhost:3000
 - `POST /api/jobs/save` — Save job to list
 - `GET /api/jobs/saved` — Get saved jobs
 - `DELETE /api/jobs/saved/:id` — Remove saved job
+- `GET /api/jobs/sources` — List search sources and whether each is configured
 
 ### AI
 - `POST /api/ai/tailor` — Generate customized CV
@@ -172,6 +184,7 @@ npm run dev:frontend # http://localhost:3000
 - `PATCH /api/alerts/:id` — Update alert
 - `DELETE /api/alerts/:id` — Delete alert
 - `POST /api/alerts/:id/test` — Preview matching jobs
+- `POST /api/alerts/check-all` — Send due alerts (requires `x-cron-secret` header = `CRON_SECRET`)
 
 ### Export
 - `POST /api/export/docx` — Generate DOCX (body: cvData, template?)

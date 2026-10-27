@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/db.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
+import { findMatchingJobs, runDueAlerts } from '../services/alerts.js';
 
 const router = Router();
 
@@ -134,7 +135,7 @@ router.post('/:id/test', authMiddleware, async (req: AuthRequest, res) => {
     }
 
     const criteria = JSON.parse(alert.criteria);
-    const matchingJobs = await findMatchingJobs(criteria.keywords, criteria.location, criteria.remote);
+    const matchingJobs = await findMatchingJobs(alert.userId, criteria, alert.lastSentAt);
 
     res.json({
       alertId: alert.id,
@@ -147,235 +148,21 @@ router.post('/:id/test', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+// Alerts also run on the in-process scheduler; this endpoint is for triggering from an external cron.
+// It isn't tied to a user, so it requires the shared CRON_SECRET.
 router.post('/check-all', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.get('x-cron-secret') !== secret) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
   try {
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    const alertsToCheck = await prisma.jobAlert.findMany({
-      where: {
-        active: true,
-        OR: [
-          { lastSentAt: null },
-          {
-            frequency: 'daily',
-            lastSentAt: { lte: oneDayAgo }
-          },
-          {
-            frequency: 'weekly',
-            lastSentAt: { lte: oneWeekAgo }
-          }
-        ]
-      },
-      include: { user: true }
-    });
-
-    const results = [];
-
-    for (const alert of alertsToCheck) {
-      try {
-        const criteria = JSON.parse(alert.criteria);
-        const matchingJobs = await findMatchingJobs(criteria.keywords, criteria.location, criteria.remote);
-
-        if (matchingJobs.length > 0) {
-          await sendAlertEmail(alert.user.email, alert.name || criteria.keywords, matchingJobs);
-        }
-
-        await prisma.jobAlert.update({
-          where: { id: alert.id },
-          data: { lastSentAt: now }
-        });
-
-        results.push({ alertId: alert.id, matched: matchingJobs.length, sent: true });
-      } catch (error) {
-        console.error(`Failed to process alert ${alert.id}:`, error);
-        results.push({ alertId: alert.id, matched: 0, sent: false, error: error.message });
-      }
-    }
-
-    res.json({ processed: alertsToCheck.length, results });
+    res.json(await runDueAlerts());
   } catch (error) {
     console.error('Check all alerts error:', error);
     res.status(500).json({ error: 'Failed to check alerts' });
   }
 });
-
-async function findMatchingJobs(keywords: string, location: string, remote: boolean) {
-  const allJobs: any[] = [];
-
-  const joobleResults = await searchFromSource('jooble', keywords, location, remote);
-  allJobs.push(...joobleResults);
-
-  const adzunaResults = await searchFromSource('adzuna', keywords, location, remote);
-  allJobs.push(...adzunaResults);
-
-  const seen = new Set();
-  return allJobs.filter(job => {
-    const key = `${job.source}:${job.sourceId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-async function searchFromSource(source: string, keywords: string, location: string, remote: boolean) {
-  if (source === 'jooble') {
-    return await searchJooble(keywords, location, remote);
-  }
-  if (source === 'adzuna') {
-    return await searchAdzuna(keywords, location, remote);
-  }
-  return [];
-}
-
-async function searchJooble(keywords: string, location: string, remote: boolean): Promise<any[]> {
-  const JOOBLE_API_URL = 'https://jooble.org/api';
-  const apiKey = process.env.JOOBLE_API_KEY;
-  
-  const searchUrl = apiKey 
-    ? `${JOOBLE_API_URL}/${apiKey}`
-    : `${JOOBLE_API_URL}`;
-
-  const searchParams: Record<string, string> = {
-    keywords: keywords,
-    location: location,
-    page: '1'
-  };
-
-  if (remote) {
-    searchParams.remoteFilter = 'true';
-  }
-
-  try {
-    const response = await fetch(searchUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(searchParams)
-    });
-
-    if (!response.ok) return [];
-
-    const data = await response.json();
-    
-    return (data.jobs || []).map((job: any) => ({
-      source: 'jooble',
-      sourceId: job.id || job.link,
-      title: job.title || 'Unknown Title',
-      company: job.company || 'Unknown Company',
-      location: job.location || location || 'Not specified',
-      description: job.snippet || job.description || '',
-      url: job.link || job.url || '',
-      postedAt: job.posted ? new Date(job.posted) : null,
-      remote: remote || job.remote === true
-    }));
-  } catch (error) {
-    console.error('Jooble search error:', error);
-    return [];
-  }
-}
-
-async function searchAdzuna(keywords: string, location: string, remote: boolean): Promise<any[]> {
-  const apiKey = process.env.ADZUNA_API_KEY;
-  const appId = process.env.ADZUNA_APP_ID;
-
-  if (!apiKey || !appId) return [];
-
-  try {
-    const country = location?.toLowerCase().includes('uk') || location?.toLowerCase().includes('london') 
-      ? 'gb' 
-      : 'us';
-    
-    const params = new URLSearchParams({
-      app_id: appId,
-      app_key: apiKey,
-      what: keywords,
-      results_per_page: '20'
-    });
-
-    if (location) params.append('where', location);
-    if (remote) params.append('where', 'Remote');
-
-    const response = await fetch(`https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params}`);
-    
-    if (!response.ok) return [];
-
-    const data = await response.json();
-
-    return (data.results || []).map((job: any) => ({
-      source: 'adzuna',
-      sourceId: String(job.id),
-      title: job.title || 'Unknown Title',
-      company: job.company?.display_name || job.company?.name || 'Unknown',
-      location: job.location?.display_name || location || 'Not specified',
-      description: job.description || '',
-      salaryMin: job.salary_min,
-      salaryMax: job.salary_max,
-      url: job.redirect_url || '',
-      postedAt: job.created ? new Date(job.created) : null,
-      remote
-    }));
-  } catch (error) {
-    console.error('Adzuna search error:', error);
-    return [];
-  }
-}
-
-async function sendAlertEmail(email: string, alertName: string, jobs: any[]) {
-  const nodemailer = await import('nodemailer');
-  
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-
-  const jobList = jobs.slice(0, 10).map(job => `
-    <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #eee;">
-        <strong>${job.title}</strong><br>
-        <span style="color: #666;">${job.company}</span> ${job.location ? `• ${job.location}` : ''}
-      </td>
-      <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
-        ${job.remote ? '<span style="color: green;">Remote</span>' : ''}
-        ${job.url ? `<a href="${job.url}" style="color: #4F46E5;">View →</a>` : ''}
-      </td>
-    </tr>
-  `).join('');
-
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #4F46E5;">New Jobs Matching: ${alertName}</h2>
-      <p style="color: #666;">Found ${jobs.length} matching job${jobs.length !== 1 ? 's' : ''}</p>
-      
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        ${jobList}
-      </table>
-      
-      <p style="color: #999; font-size: 12px;">
-        You received this email because you have a JobFlow alert set up.<br>
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/alerts" style="color: #666;">
-          Manage your alerts
-        </a>
-      </p>
-    </div>
-  `;
-
-  try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'noreply@jobflow.app',
-      to: email,
-      subject: `Job Alert: ${jobs.length} new jobs matching "${alertName}"`,
-      html
-    });
-  } catch (error) {
-    console.error('Failed to send alert email:', error);
-    throw error;
-  }
-}
 
 export default router;
