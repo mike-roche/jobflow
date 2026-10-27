@@ -22,6 +22,8 @@ JobFlow helps you discover jobs across multiple aggregators, customize your CV w
 ./setup.sh
 ```
 
+This installs dependencies, creates `.env` from `.env.example` if you don't have one, links it into `backend/`, and creates the database. It doesn't start the app or install the browser extension. Edit `.env` (at least one AI provider key), then start the app. Re-running it is safe and won't overwrite your `.env`.
+
 ### Start (one command)
 ```bash
 npm run dev
@@ -29,17 +31,12 @@ npm run dev
 
 This starts both backend (port 4000) and frontend (port 3000).
 
-For all services (backend + frontend + landing page):
-```bash
-npm run dev:all
-```
-
 ### Manual Setup
 
 **1. Install dependencies:**
 ```bash
 npm install
-cd backend && npm install && cd ../frontend && npm install && cd ../web && npm install
+cd backend && npm install && cd ../frontend && npm install
 ```
 
 **2. Copy and edit environment:**
@@ -50,7 +47,8 @@ cp .env.example .env
 
 **3. Setup database:**
 ```bash
-cd backend && npx prisma db push
+ln -s ../.env backend/.env   # the backend reads .env from backend/
+npm run db:push
 ```
 
 **4. Start services:**
@@ -115,7 +113,7 @@ npm run dev:frontend # http://localhost:3000
 └────────────────┬────────────────────────────┘
                  │ REST API
 ┌────────────────▼────────────────────────────┐
-│  Express Backend (Port 3001)               │
+│  Express Backend (Port 4000)               │
 │  - Auth (JWT)                               │
 │  - Job aggregation (Remotive, Adzuna, ...) │
 │  - Alert-email ingest (IMAP) + scheduler   │
