@@ -32,6 +32,13 @@ export interface Job {
   postedAt?: string;
 }
 
+export interface JobSourceInfo {
+  id: string;
+  name: string;
+  enabled: boolean;
+  docs: string;
+}
+
 export interface SearchResponse {
   jobs: Job[];
   total: number;
@@ -107,6 +114,10 @@ export const jobApi = {
   },
   deleteSaved: async (id: string) => {
     await api.delete(`/jobs/saved/${id}`);
+  },
+  sources: async (): Promise<{ sources: JobSourceInfo[] }> => {
+    const { data } = await api.get('/jobs/sources');
+    return data;
   }
 };
 

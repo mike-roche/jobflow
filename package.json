@@ -12,6 +12,8 @@
     "build:frontend": "cd frontend && npm run build",
     "db:push": "cd backend && npx prisma db push",
     "db:generate": "cd backend && npx prisma generate",
+    "mail:login": "cd backend && npm run mail:login",
+    "mail:check": "cd backend && npm run mail:check --",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "workspaces": [
@@ -19,8 +21,17 @@
     "frontend"
   ],
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^6.19.3"
   },
-  "keywords": ["job-search", "cv", "application-tracker", "opensource"],
-  "license": "MIT"
+  "keywords": [
+    "job-search",
+    "cv",
+    "application-tracker",
+    "opensource"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
 }

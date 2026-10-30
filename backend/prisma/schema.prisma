@@ -45,7 +45,7 @@ model BaseCv {
 model SavedJob {
   id          String    @id @default(uuid())
   userId      String
-  source      String    // 'jooble', 'indeed', 'adzuna', 'manual'
+  source      String    // search source id (e.g. 'remotive', 'adzuna'), 'linkedin-email', 'indeed-email', 'manual'
   sourceId    String?
   title       String
   company     String?
@@ -126,4 +126,10 @@ model CvCustomization {
   job      SavedJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+// Small key-value store for integration state: mailbox OAuth tokens, email-ingest cursor
+model IntegrationState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

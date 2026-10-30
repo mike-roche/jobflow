@@ -3,13 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Briefcase, Bookmark, ExternalLink, Wifi, Wand2, ChevronDown, X } from 'lucide-react';
-import { jobApi, type Job } from '@/lib/api';
+import { jobApi, type Job, type JobSourceInfo } from '@/lib/api';
 
-const SOURCE_CONFIG = {
+const SOURCE_CONFIG: Record<string, { name: string; color: string }> = {
+  remotive: { name: 'Remotive', color: 'bg-teal-100 text-teal-700' },
+  remoteok: { name: 'Remote OK', color: 'bg-rose-100 text-rose-700' },
+  arbeitnow: { name: 'Arbeitnow', color: 'bg-amber-100 text-amber-700' },
   jooble: { name: 'Jooble', color: 'bg-orange-100 text-orange-700' },
   indeed: { name: 'Indeed', color: 'bg-blue-100 text-blue-700' },
-  adzuna: { name: 'Adzuna', color: 'bg-green-100 text-green-700' }
+  adzuna: { name: 'Adzuna', color: 'bg-green-100 text-green-700' },
+  'linkedin-email': { name: 'LinkedIn alert', color: 'bg-sky-100 text-sky-700' },
+  'indeed-email': { name: 'Indeed alert', color: 'bg-blue-100 text-blue-700' }
 };
+
+function sourceBadge(source: string) {
+  return SOURCE_CONFIG[source] || { name: source, color: 'bg-gray-100 text-gray-700' };
+}
 
 export default function JobsPage() {
   const router = useRouter();
@@ -21,13 +30,26 @@ export default function JobsPage() {
   const [remote, setRemote] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [activeSources, setActiveSources] = useState<string[]>(['jooble']);
+  const [availableSources, setAvailableSources] = useState<JobSourceInfo[]>([]);
+  const [activeSources, setActiveSources] = useState<string[]>([]);
   const [showSourceFilter, setShowSourceFilter] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
     loadSavedJobs();
+    loadSources();
   }, []);
+
+  const loadSources = async () => {
+    try {
+      const data = await jobApi.sources();
+      const enabled = data.sources.filter(s => s.enabled);
+      setAvailableSources(enabled);
+      setActiveSources(enabled.map(s => s.id));
+    } catch (error) {
+      console.error('Failed to load job sources:', error);
+    }
+  };
 
   const loadSavedJobs = async () => {
     try {
@@ -169,15 +191,15 @@ export default function JobsPage() {
                       <X size={16} />
                     </button>
                   </div>
-                  {Object.entries(SOURCE_CONFIG).map(([key, config]) => (
-                    <label key={key} className="flex items-center gap-2 py-1 cursor-pointer">
+                  {availableSources.map(source => (
+                    <label key={source.id} className="flex items-center gap-2 py-1 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={activeSources.includes(key)}
-                        onChange={() => toggleSource(key)}
+                        checked={activeSources.includes(source.id)}
+                        onChange={() => toggleSource(source.id)}
                         className="w-4 h-4 text-primary rounded"
                       />
-                      <span className="text-sm">{config.name}</span>
+                      <span className="text-sm">{source.name}</span>
                     </label>
                   ))}
                 </div>
@@ -219,7 +241,7 @@ export default function JobsPage() {
               const key = `${job.source}-${job.sourceId}`;
               const isSaved = savedJobIds.has(key);
               const savedJobId = savedJobIds.get(key);
-              const sourceConfig = SOURCE_CONFIG[job.source as keyof typeof SOURCE_CONFIG] || SOURCE_CONFIG.jooble;
+              const sourceConfig = sourceBadge(job.source);
               
               return (
                 <div
@@ -316,7 +338,7 @@ export default function JobsPage() {
               const key = `${job.source}-${job.sourceId}`;
               const isSaved = savedJobIds.has(key);
               const savedJobId = savedJobIds.get(key);
-              const sourceConfig = SOURCE_CONFIG[job.source as keyof typeof SOURCE_CONFIG] || SOURCE_CONFIG.jooble;
+              const sourceConfig = sourceBadge(job.source);
               
               return (
                 <div
