@@ -9,6 +9,7 @@ import aiRoutes from './routes/ai.js';
 import applicationRoutes from './routes/applications.js';
 import exportRoutes from './routes/export.js';
 import alertRoutes from './routes/alerts.js';
+import pipelineRoutes from './routes/pipeline.js';
 import { startScheduler } from './services/scheduler.js';
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/pipeline', pipelineRoutes);
 
 app.get('/api/health', (_, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -1,5 +1,6 @@
 import { runDueAlerts } from './alerts.js';
 import { isEmailIngestConfigured, runEmailIngest } from './emailIngest/index.js';
+import { isPipelineEnabled, triggerPipeline } from './pipeline.js';
 
 const MINUTE = 60 * 1000;
 
@@ -29,10 +30,21 @@ export function startScheduler() {
     return;
   }
 
+  const ingestMinutes = parseInt(process.env.EMAIL_INGEST_INTERVAL_MINUTES || '30');
+  const pipelineEnabled = isPipelineEnabled();
+  if (!pipelineEnabled) {
+    console.log('[scheduler] auto-tailoring off (no AI provider configured, or PIPELINE_ENABLED=false)');
+  }
+
   if (isEmailIngestConfigured()) {
-    every('email ingest', parseInt(process.env.EMAIL_INGEST_INTERVAL_MINUTES || '30'), runEmailIngest);
+    // New jobs from email go straight into the pipeline
+    every('email ingest + pipeline', ingestMinutes, async () => ({
+      ingest: await runEmailIngest(),
+      pipeline: pipelineEnabled ? await triggerPipeline() : 'off'
+    }));
   } else {
     console.log('[scheduler] email ingest not configured; skipping');
+    if (pipelineEnabled) every('pipeline', ingestMinutes, triggerPipeline);
   }
 
   // Each alert has its own daily/weekly cadence; this only controls how often we look for due ones
