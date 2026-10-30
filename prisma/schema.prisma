@@ -53,6 +53,7 @@ model SavedJob {
   remote      Boolean   @default(false)
   salaryMin   Int?
   salaryMax   Int?
+  salary      String?   // salary as shown by the source, e.g. "$120K-$150K / year"
   description String?
   url         String?
   postedAt    DateTime?

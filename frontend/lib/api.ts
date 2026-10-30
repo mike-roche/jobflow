@@ -28,6 +28,7 @@ export interface Job {
   remote: boolean;
   salaryMin?: number;
   salaryMax?: number;
+  salary?: string;
   description?: string;
   url?: string;
   postedAt?: string;
