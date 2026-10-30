@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://localhost:4000/api';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const app = document.getElementById('app');
