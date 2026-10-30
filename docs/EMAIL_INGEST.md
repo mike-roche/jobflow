@@ -92,5 +92,7 @@ IMAP_PASSWORD=<app password>
 - **"Not signed in to Outlook" or "token refresh failed":** run `npm run mail:login` again.
 - **Jobs found but company/location look wrong:** the email layouts change from time to time.
   Save one alert email as `.eml` and adjust `backend/src/services/emailIngest/parsers.ts`.
+  Then run `npm run mail:check -- --full` to rescan the whole lookback window. A normal run only reads mail received since the previous run.
+- **Outlook Safe Links:** Outlook rewrites links to `safelinks.protection.outlook.com`. The parser unwraps them, so no setting is needed.
 - **Nothing found:** check that the alerts land in one of the folders listed in `EMAIL_INGEST_FOLDERS`
   (Junk counts as a separate folder). Also note the first run only looks back `EMAIL_INGEST_LOOKBACK_DAYS` days (default 14).

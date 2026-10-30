@@ -73,7 +73,21 @@ interface JobCard {
   details: string[];
 }
 
-function extractJobCards(html: string, idFromHref: (href: string) => string | null): JobCard[] {
+// Outlook "Safe Links" rewrites every link to safelinks.protection.outlook.com/?url=<original>
+export function unwrapSafeLink(href: string): string {
+  try {
+    const url = new URL(href);
+    if (url.hostname.endsWith('safelinks.protection.outlook.com')) {
+      return url.searchParams.get('url') || href;
+    }
+  } catch {
+    // Not an absolute URL; match it as-is
+  }
+  return href;
+}
+
+function extractJobCards(html: string, matchId: (href: string) => string | null): JobCard[] {
+  const idFromHref = (href: string) => matchId(unwrapSafeLink(href));
   const $ = cheerio.load(html);
   const anchorsById = new Map<string, Cheerio[]>();
 

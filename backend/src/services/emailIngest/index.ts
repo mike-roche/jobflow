@@ -43,13 +43,14 @@ export interface IngestResult {
   jobsAdded: number;
 }
 
-export async function runEmailIngest(): Promise<IngestResult> {
+// `full` ignores the last-run cursor and rescans the whole lookback window (e.g. after a parser fix)
+export async function runEmailIngest({ full = false }: { full?: boolean } = {}): Promise<IngestResult> {
   if (!isEmailIngestConfigured()) {
     throw new Error('Email ingest is not configured (set MAIL_USER and MAIL_PROVIDER/MS_CLIENT_ID or IMAP_PASSWORD)');
   }
 
   const startedAt = new Date();
-  const lastRun = await getState(LAST_RUN_KEY);
+  const lastRun = full ? null : await getState(LAST_RUN_KEY);
   const lookbackDays = parseInt(process.env.EMAIL_INGEST_LOOKBACK_DAYS || '14');
   // IMAP SINCE only has day precision; re-reading a day of overlap is harmless since inserts are idempotent
   const since = lastRun

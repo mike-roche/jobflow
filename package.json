@@ -13,7 +13,7 @@
     "db:push": "cd backend && npx prisma db push",
     "db:generate": "cd backend && npx prisma generate",
     "mail:login": "cd backend && npm run mail:login",
-    "mail:check": "cd backend && npm run mail:check",
+    "mail:check": "cd backend && npm run mail:check --",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "workspaces": [
