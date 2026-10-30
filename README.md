@@ -81,6 +81,8 @@ npm run dev:frontend # http://localhost:3000
 | `ANTHROPIC_API_KEY` | One required | Anthropic Claude API key |
 | `ANTHROPIC_MODEL` | Optional | Claude model id (defaults to `claude-sonnet-4-5`) |
 | `CORS_ORIGINS` | Optional | Comma-separated extra origins (e.g. LAN IP for remote dev) |
+| `BACKEND_URL` | Optional | Where the frontend proxies `/api` (default `http://localhost:4000`) |
+| `NEXT_PUBLIC_API_URL` | Optional | Make the browser call the backend directly instead of via the proxy |
 | `MINIMAX_API_KEY` | One required | MiniMax |
 | `OPENROUTER_API_KEY` | Optional | Fallback aggregator |
 | `JOOBLE_API_KEY` | Optional | Jooble job search |

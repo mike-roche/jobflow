@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://localhost:4000/api';
 const STORAGE_KEY = 'jobflow_auth';
 const CV_DATA_KEY = 'jobflow_cv_data';
 
