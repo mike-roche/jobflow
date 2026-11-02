@@ -53,10 +53,18 @@ model SavedJob {
   remote      Boolean   @default(false)
   salaryMin   Int?
   salaryMax   Int?
+  salary      String?   // salary as shown by the source, e.g. "$120K-$150K / year"
   description String?
   url         String?
   postedAt    DateTime?
   savedAt     DateTime  @default(now())
+
+  // Auto-tailoring pipeline (see backend/src/services/pipeline.ts)
+  triageScore              Int?      // quick fit score from title/company/location/salary
+  triageReason             String?
+  pipelineStatus           String?   // null = not screened yet; screened_out, needs_description, queued, ready, failed, applied, skipped
+  pipelineError            String?
+  descriptionFetchAttempts Int       @default(0)
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   applications Application[]
@@ -118,6 +126,7 @@ model CvCustomization {
   baseCvId         String
   jobId            String?
   customizedData   String   // JSON stored as text
+  coverLetter      String?
   matchScore       Int?
   createdAt        DateTime @default(now())
 

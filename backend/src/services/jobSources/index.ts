@@ -1,5 +1,6 @@
 import prisma from '../../lib/db.js';
 import type { JobSource, NormalizedJob, SearchQuery } from './types.js';
+import { parseSalary } from './util.js';
 import { jooble } from './jooble.js';
 import { indeed } from './indeed.js';
 import { adzuna } from './adzuna.js';
@@ -70,6 +71,8 @@ export function deduplicateJobs(jobs: NormalizedJob[]): NormalizedJob[] {
 }
 
 function toJobRecord(job: NormalizedJob) {
+  // Sources that only give salary text (Remotive, Jooble) still get sortable min/max
+  const parsed = !job.salaryMin && job.salary ? parseSalary(job.salary) : null;
   return {
     title: job.title,
     company: job.company || null,
@@ -77,8 +80,9 @@ function toJobRecord(job: NormalizedJob) {
     remote: job.remote || false,
     description: job.description || null,
     url: job.url || null,
-    salaryMin: job.salaryMin || null,
-    salaryMax: job.salaryMax || null,
+    salaryMin: job.salaryMin || parsed?.min || null,
+    salaryMax: job.salaryMax || parsed?.max || null,
+    salary: job.salary || null,
     postedAt: job.postedAt || null
   };
 }
@@ -95,14 +99,25 @@ export async function upsertJobs(userId: string, jobs: NormalizedJob[]): Promise
   );
 }
 
-// Inserts jobs that aren't stored yet and leaves existing rows untouched; returns how many were new
+// Inserts jobs that aren't stored yet; existing rows only get empty fields filled in
+// (so edits are kept, but a parser improvement can backfill). Returns how many were new.
 export async function insertNewJobs(userId: string, jobs: NormalizedJob[]): Promise<number> {
   let created = 0;
   for (const job of jobs) {
     const existing = await prisma.savedJob.findUnique({
       where: { userId_source_sourceId: { userId, source: job.source, sourceId: job.sourceId } }
     });
-    if (existing) continue;
+    if (existing) {
+      const blanks = Object.fromEntries(
+        Object.entries(toJobRecord(job)).filter(
+          ([key, value]) => value != null && value !== '' && existing[key as keyof typeof existing] == null
+        )
+      );
+      if (Object.keys(blanks).length > 0) {
+        await prisma.savedJob.update({ where: { id: existing.id }, data: blanks });
+      }
+      continue;
+    }
     await prisma.savedJob.create({
       data: { userId, source: job.source, sourceId: job.sourceId, ...toJobRecord(job) }
     });

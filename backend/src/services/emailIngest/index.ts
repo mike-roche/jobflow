@@ -1,6 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import prisma, { DEFAULT_USER_ID } from '../../lib/db.js';
+import { primaryUserId } from '../../lib/user.js';
 import { getState, setState } from '../../lib/state.js';
 import { insertNewJobs, type NormalizedJob } from '../jobSources/index.js';
 import { getMicrosoftAccessToken, isMicrosoftConfigured } from './microsoftAuth.js';
@@ -26,17 +26,6 @@ async function imapAuth(): Promise<{ user: string; accessToken: string } | { use
   return { user, accessToken: await getMicrosoftAccessToken() };
 }
 
-// Ingested jobs go to JOBFLOW_USER_EMAIL's account, or the built-in local user
-async function targetUserId(): Promise<string> {
-  const email = process.env.JOBFLOW_USER_EMAIL;
-  if (!email) return DEFAULT_USER_ID;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    throw new Error(`JOBFLOW_USER_EMAIL=${email} does not match any JobFlow account`);
-  }
-  return user.id;
-}
-
 export interface IngestResult {
   messagesScanned: number;
   jobsFound: number;
@@ -58,7 +47,7 @@ export async function runEmailIngest({ full = false }: { full?: boolean } = {}):
     : new Date(startedAt.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
 
   const folders = (process.env.EMAIL_INGEST_FOLDERS || 'INBOX').split(',').map(f => f.trim()).filter(Boolean);
-  const userId = await targetUserId();
+  const userId = await primaryUserId();
 
   const client = new ImapFlow({
     host: process.env.IMAP_HOST || 'outlook.office365.com',
@@ -67,6 +56,10 @@ export async function runEmailIngest({ full = false }: { full?: boolean } = {}):
     auth: await imapAuth(),
     logger: false
   });
+  // Without a listener, a dropped connection (network blip, Mac sleeping) is an unhandled
+  // 'error' event and crashes the whole backend. The in-flight command rejects on its own,
+  // so this pass fails and the next scheduled run reconnects.
+  client.on('error', error => console.error('[email ingest] IMAP connection error:', error.message));
 
   const jobs: NormalizedJob[] = [];
   let messagesScanned = 0;

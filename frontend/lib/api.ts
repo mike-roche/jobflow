@@ -28,6 +28,7 @@ export interface Job {
   remote: boolean;
   salaryMin?: number;
   salaryMax?: number;
+  salary?: string;
   description?: string;
   url?: string;
   postedAt?: string;
@@ -264,6 +265,58 @@ export const exportApi = {
   history: async () => {
     const { data } = await api.get('/export/history');
     return data;
+  }
+};
+
+export interface QueueItem {
+  job: Job & {
+    triageScore?: number;
+    triageReason?: string;
+    pipelineStatus: 'needs_description' | 'queued' | 'tailoring' | 'ready' | 'failed';
+    pipelineError?: string;
+  };
+  tailored?: {
+    id: string;
+    cv: ParsedCV;
+    coverLetter?: string;
+    matchScore?: number;
+    createdAt: string;
+  };
+}
+
+export interface PipelineStatus {
+  enabled: boolean;
+  hasCv: boolean;
+  running: boolean;
+  minScore: number;
+  dailyLimit: number;
+  tailoredToday: number;
+  counts: Record<string, number>;
+}
+
+export const pipelineApi = {
+  queue: async (): Promise<{ items: QueueItem[] }> => {
+    const { data } = await api.get('/pipeline/queue');
+    return data;
+  },
+  status: async (): Promise<PipelineStatus> => {
+    const { data } = await api.get('/pipeline/status');
+    return data;
+  },
+  run: async () => {
+    await api.post('/pipeline/run');
+  },
+  addDescription: async (jobId: string, description: string) => {
+    await api.post(`/pipeline/jobs/${jobId}/description`, { description });
+  },
+  retry: async (jobId: string) => {
+    await api.post(`/pipeline/jobs/${jobId}/retry`);
+  },
+  markApplied: async (jobId: string) => {
+    await api.post(`/pipeline/jobs/${jobId}/applied`);
+  },
+  skip: async (jobId: string) => {
+    await api.post(`/pipeline/jobs/${jobId}/skip`);
   }
 };
 

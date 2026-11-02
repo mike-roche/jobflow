@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, FileText, Briefcase, Bell } from 'lucide-react';
+import { Search, FileText, Briefcase, Bell, Inbox } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard/jobs', label: 'Jobs', icon: Search },
+  { href: '/dashboard/queue', label: 'Ready to Apply', icon: Inbox },
   { href: '/dashboard/cv', label: 'My CV', icon: FileText },
   { href: '/dashboard/applications', label: 'Applications', icon: Briefcase },
   { href: '/dashboard/alerts', label: 'Alerts', icon: Bell },

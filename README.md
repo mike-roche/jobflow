@@ -9,7 +9,8 @@ JobFlow helps you discover jobs across multiple aggregators, customize your CV w
 - **CV Upload & Parsing** — Upload PDF/DOCX, AI extracts structured data
 - **Job Search** — Remotive, Remote OK, Arbeitnow (no keys needed), plus optional Adzuna, Jooble, Indeed, with smart deduplication
 - **LinkedIn & Indeed alert import** — Reads your LinkedIn/Indeed job-alert emails (read-only) and adds the jobs to your list ([setup](docs/EMAIL_INGEST.md))
-- **AI Customization** — Tailor CV and generate cover letters for any job
+- **AI Customization** — Tailor CV and generate cover letters for any job, using an Anthropic API key or your Claude Pro/Max subscription (via Claude Code)
+- **Auto-tailoring** — Screens new jobs, tailors CV + cover letter for the best matches, and queues them on a Ready to Apply page; you review and apply ([details](docs/AUTO_TAILOR.md))
 - **4 CV Templates** — Modern, Classic, Creative, Minimal
 - **Application Tracker** — Kanban board with drag-and-drop + Analytics dashboard
 - **Job Alerts** — Daily/weekly email digests with matching jobs, run by the built-in scheduler
@@ -79,7 +80,10 @@ npm run dev:frontend # http://localhost:3000
 | `JWT_SECRET` | Yes | Secret for JWT tokens |
 | `OPENAI_API_KEY` | One required | OpenAI GPT-4 |
 | `ANTHROPIC_API_KEY` | One required | Anthropic Claude API key |
-| `ANTHROPIC_MODEL` | Optional | Claude model id (defaults to `claude-sonnet-4-5`) |
+| `ANTHROPIC_MODEL` | Optional | Claude model id (defaults to `claude-opus-5`) |
+| `AI_PROVIDER` | Optional | `anthropic` (API key) or `claude-code` (Claude subscription via Claude Code) |
+| `AI_FALLBACK_PROVIDER` | Optional | Provider to use when the main one fails |
+| `PIPELINE_MIN_SCORE` / `PIPELINE_DAILY_TAILOR_LIMIT` / `PIPELINE_PREFERENCES` | Optional | Auto-tailoring settings ([details](docs/AUTO_TAILOR.md)) |
 | `CORS_ORIGINS` | Optional | Comma-separated extra origins (e.g. LAN IP for remote dev) |
 | `BACKEND_URL` | Optional | Where the frontend proxies `/api` (default `http://localhost:4000`) |
 | `NEXT_PUBLIC_API_URL` | Optional | Make the browser call the backend directly instead of via the proxy |
@@ -185,6 +189,13 @@ npm run dev:frontend # http://localhost:3000
 - `DELETE /api/alerts/:id` — Delete alert
 - `POST /api/alerts/:id/test` — Preview matching jobs
 - `POST /api/alerts/check-all` — Send due alerts (requires `x-cron-secret` header = `CRON_SECRET`)
+
+### Pipeline (auto-tailoring)
+- `GET /api/pipeline/queue` — Ready, needs-description, in-progress and failed jobs
+- `GET /api/pipeline/status` — Settings, counts, today's usage
+- `POST /api/pipeline/run` — Start a pass now
+- `POST /api/pipeline/jobs/:id/description` — Paste a description and tailor
+- `POST /api/pipeline/jobs/:id/{retry,applied,skip}`
 
 ### Export
 - `POST /api/export/docx` — Generate DOCX (body: cvData, template?)

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { NormalizedJob } from '../jobSources/types.js';
+import { parseSalary } from '../jobSources/util.js';
 
 // Job-alert emails are built from nested tables and change layout often, so instead of
 // matching exact markup we find every link to a job posting, take the smallest enclosing
@@ -146,7 +147,12 @@ function companyAndLocation(details: string[]): { company: string; location: str
 
 function toJob(source: string, card: JobCard, url: string, receivedAt: Date | null): NormalizedJob {
   const { company, location } = companyAndLocation(card.details);
+  const salaryLine = card.details.find(line => /^[$£€]\s?\d/.test(line));
+  const salary = salaryLine ? parseSalary(salaryLine) : null;
   return {
+    salary: salary?.text,
+    salaryMin: salary?.min,
+    salaryMax: salary?.max,
     source,
     sourceId: card.id,
     title: card.title,

@@ -16,6 +16,13 @@ const SOURCE_CONFIG: Record<string, { name: string; color: string }> = {
   'indeed-email': { name: 'Indeed alert', color: 'bg-blue-100 text-blue-700' }
 };
 
+// Prefer the source's own wording ("$55 - $65 an hour"); fall back to the numeric range
+function formatSalary(job: Job): string {
+  if (job.salary) return job.salary;
+  if (!job.salaryMin) return '';
+  return `$${job.salaryMin.toLocaleString()}${job.salaryMax ? ` - $${job.salaryMax.toLocaleString()}` : ''}`;
+}
+
 function sourceBadge(source: string) {
   return SOURCE_CONFIG[source] || { name: source, color: 'bg-gray-100 text-gray-700' };
 }
@@ -270,10 +277,8 @@ export default function JobsPage() {
                             {job.location}
                           </span>
                         )}
-                        {job.salaryMin && (
-                          <span className="text-green-600 font-medium">
-                            ${job.salaryMin.toLocaleString()}{job.salaryMax ? ` - $${job.salaryMax.toLocaleString()}` : ''}
-                          </span>
+                        {formatSalary(job) && (
+                          <span className="text-green-600 font-medium">{formatSalary(job)}</span>
                         )}
                       </div>
                       {job.description && (
@@ -367,10 +372,8 @@ export default function JobsPage() {
                             {job.location}
                           </span>
                         )}
-                        {job.salaryMin && (
-                          <span className="text-green-600 font-medium">
-                            ${job.salaryMin.toLocaleString()}{job.salaryMax ? ` - $${job.salaryMax.toLocaleString()}` : ''}
-                          </span>
+                        {formatSalary(job) && (
+                          <span className="text-green-600 font-medium">{formatSalary(job)}</span>
                         )}
                       </div>
                       {job.description && (
