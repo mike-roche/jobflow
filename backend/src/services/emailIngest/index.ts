@@ -56,6 +56,10 @@ export async function runEmailIngest({ full = false }: { full?: boolean } = {}):
     auth: await imapAuth(),
     logger: false
   });
+  // Without a listener, a dropped connection (network blip, Mac sleeping) is an unhandled
+  // 'error' event and crashes the whole backend. The in-flight command rejects on its own,
+  // so this pass fails and the next scheduled run reconnects.
+  client.on('error', error => console.error('[email ingest] IMAP connection error:', error.message));
 
   const jobs: NormalizedJob[] = [];
   let messagesScanned = 0;
